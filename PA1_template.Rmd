@@ -1,25 +1,98 @@
 ---
 title: "Reproducible Research: Peer Assessment 1"
+author: "Gerardo Santiago Flores"
+date: "June 12, 2016"
 output: 
   html_document:
     keep_md: true
 ---
 
+```{r setup}
+knitr::opts_chunk$set(echo = TRUE)
+library(timeDate)
+library(plyr)
+library(ggplot2)
+```
 
 ## Loading and preprocessing the data
-
+### 1. Code for reading in the dataset and/or processing the data
+```{r read_data}
+read_data <- read.csv("activity.csv", header = TRUE, na.strings = "NA")
+head(read_data)
+```
 
 
 ## What is mean total number of steps taken per day?
-
-
+### 2. Histogram of the total number of steps taken each day
+```{r hist_total_per_day}
+total_steps <-ddply(read_data, .(date), summarise, sum=sum(steps))
+hist(total_steps$sum, xlab = "Steps", main ="Total number of steps per day ")
+```
 
 ## What is the average daily activity pattern?
+### 3. Mean and median number of steps taken each day
+```{r mean_meadian_each_day}
+mean_median_data <- ddply(read_data, .(date), summarise, mean=mean(steps, na.rm = TRUE), median=median(steps, na.rm = TRUE))
+mean_median_data
 
+```
 
+### 4. Time series plot of the average number of steps taken
+
+```{r plot_average_steps}
+average_steps_per_interval <- ddply(read_data, .(interval), summarise, mean=mean(steps, na.rm = TRUE))
+plot(average_steps_per_interval, type = "l", main = "Mean number of steps per interval")
+```
+
+### 5. The 5-minute interval that, on average, contains the maximum number of steps
+
+```{r max_steps_interval}
+interval_max_steps <- average_steps_per_interval$interval[which.max(average_steps_per_interval$mean)]
+print("interval with max steps")
+print(interval_max_steps)
+```
 
 ## Imputing missing values
+### 6. Code to describe and show a strategy for imputing missing data
+The strategy used is to replace NA by mean value of that 5-minute interval
 
+```{r total_na}
+print("Total number of rows with NA")
+print(sum(is.na(read_data$steps)))
+```
 
+```{r fill_stategy}
+print("Fill NA strategy")
+intervals <- unique(read_data$interval)
+filled_data <- read_data
+for (inter in intervals)
+{
+    index_to_fill <- which(is.na(read_data$steps) & read_data$interval == inter)
+    filled_data[index_to_fill,]$steps <- average_steps_per_interval[average_steps_per_interval$interval == inter,]$mean
+}
+print(head(filled_data))
+```
+
+### 7. Histogram of the total number of steps taken each day after missing values are imputed
+
+```{r hist_total_per_day_filled}
+filled_total_steps <-ddply(filled_data, .(date), summarise, sum=sum(steps))
+hist(filled_total_steps$sum, xlab = "Steps", main ="Total number of steps per day (Filled Data)")
+```
+
+```{r mean_meadian_each_day_filled}
+
+filled_mean_median_data <- ddply(filled_data, .(date), summarise, mean=mean(steps, na.rm = TRUE), median=median(steps, na.rm = TRUE))
+print("Mean Meadian of filled data")
+print(filled_mean_median_data)
+
+```
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+```{r weekdays_mean}
+filled_data$date <- as.Date(filled_data$date)
+filled_data$weekday <- isWeekday(filled_data$date)
+weekday_average_steps_per_interval <- ddply(filled_data, .(interval, weekday), summarise, mean=mean(steps, na.rm = TRUE))
+ggplot(weekday_average_steps_per_interval, aes(x = interval, y = mean, colour = weekday)) + geom_line() + facet_grid(weekday ~ .) + ggtitle("Mean steps per interval") + labs(x="Interval",y="Number of steps") 
+```
